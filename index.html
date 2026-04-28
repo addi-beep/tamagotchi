@@ -1,224 +1,217 @@
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<title>Chaos Pet Arcade</title>
-<style>
-body {
-  background: #9acd32;
-  font-family: monospace;
-  text-align: center;
-  color: black;
+// =======================
+// 🧠 GAME STATE
+// =======================
+let gameState = {
+  paused: false,
+  alive: true,
+
+  hunger: 50,
+  energy: 50,
+  health: 100,
+
+  happiness: 50, // ONLY driven by actions
+
+  age: 0,
+  ageProgress: 0,
+  size: 1,
+
+  poopReady: false,
+  lastMealTime: 0,
+
+  doctorCooldown: 0
+};
+
+// =======================
+// 💾 SAVE / LOAD
+// =======================
+function saveGame() {
+  localStorage.setItem("tamagotchiSave", JSON.stringify(gameState));
 }
 
-#game {
-  width: 750px;
-  margin: auto;
-  background: #c7f464;
-  padding: 20px;
-  border: 6px solid #3b6b1a;
-  border-radius: 20px;
-}
-
-canvas {
-  background: #b2e251;
-  border: 4px solid #3b6b1a;
-  border-radius: 10px;
-  image-rendering: pixelated;
-}
-
-button {
-  background: #6fbf2f;
-  border: 2px solid #2e4d12;
-  padding: 8px 15px;
-  margin: 5px;
-  font-family: monospace;
-  cursor: pointer;
-}
-
-.bar {
-  height: 14px;
-  background: #3b6b1a;
-  margin: 4px;
-}
-</style>
-</head>
-<body>
-
-<div id="game">
-<h1>CHAOS PET ARCADE</h1>
-
-<canvas id="petCanvas" width="500" height="300"></canvas>
-
-<div>Age: <span id="age"></span> | Form: <span id="form"></span></div>
-
-<div>Hunger<div class="bar" id="hungerBar"></div></div>
-<div>Happiness<div class="bar" id="happyBar"></div></div>
-
-<button onclick="feed()">Feed</button>
-<button onclick="sleepPet()">Sleep</button>
-<button onclick="toggleOutfit()">Toggle Outfit</button>
-<button onclick="toggleChaos()">Chaos Mode</button>
-<button onclick="startPixelGame()">Pixel Game</button>
-
-<h3>High Score: <span id="highScore">0</span></h3>
-
-<canvas id="pixelGame" width="500" height="300" style="display:none;"></canvas>
-
-</div>
-
-<script>
-let age = 0;
-let hunger = 100;
-let happiness = 100;
-let size = 40;
-let form = "Baby";
-let chaosMode = false;
-let outfit = false;
-let highScore = localStorage.getItem("highScore") || 0;
-
-document.getElementById("highScore").innerText = highScore;
-
-const canvas = document.getElementById("petCanvas");
-const ctx = canvas.getContext("2d");
-
-function saveGame(){
-  localStorage.setItem("petData", JSON.stringify({
-    age,hunger,happiness,size,form
-  }));
-}
-
-function loadGame(){
-  let data = JSON.parse(localStorage.getItem("petData"));
-  if(data){
-    age=data.age;
-    hunger=data.hunger;
-    happiness=data.happiness;
-    size=data.size;
-    form=data.form;
-  }
+function loadGame() {
+  const data = localStorage.getItem("tamagotchiSave");
+  if (data) gameState = JSON.parse(data);
 }
 
 loadGame();
 
-function evolve(){
-  if(age < 3) form="Baby";
-  else if(age < 6) form="Teen";
-  else if(age < 10) form="Gremlin";
-  else form="ULTIMATE CHAOS";
+// auto save
+setInterval(() => {
+  if (!gameState.paused) saveGame();
+}, 5000);
+
+// =======================
+// ⏸️ PAUSE SYSTEM
+// =======================
+function togglePause() {
+  gameState.paused = !gameState.paused;
 }
 
-function drawPet(){
-  ctx.clearRect(0,0,500,300);
+// =======================
+// 🍎 FEED (affects hunger + happiness)
+// =======================
+function feed() {
+  if (!gameState.alive || gameState.paused) return;
 
-  if(new Date().getHours() > 18){
-    ctx.fillStyle="#6a8f2a";
-    ctx.fillRect(0,0,500,300);
-  }
+  gameState.hunger = Math.max(0, gameState.hunger - 20);
+  gameState.happiness = Math.min(100, gameState.happiness + 5);
 
-  ctx.fillStyle="#66cc33";
-  ctx.fillRect(250-size/2,150-size/2,size,size);
-
-  ctx.fillStyle="white";
-  ctx.fillRect(230,120,15,15);
-  ctx.fillRect(260,120,15,15);
-
-  ctx.fillStyle="black";
-  ctx.fillRect(235,125,5,5);
-  ctx.fillRect(265,125,5,5);
-
-  if(outfit){
-    ctx.fillStyle="black";
-    ctx.fillRect(240,170,20,10);
-  }
+  gameState.lastMealTime = Date.now();
 }
 
-function updateBars(){
-  document.getElementById("age").innerText = age;
-  document.getElementById("form").innerText = form;
-  document.getElementById("hungerBar").style.width = hunger + "%";
-  document.getElementById("happyBar").style.width = happiness + "%";
+// =======================
+// 💩 TOILET (only when needed)
+// =======================
+function toilet() {
+  if (!gameState.poopReady) return;
+
+  gameState.poopReady = false;
+  gameState.happiness = Math.min(100, gameState.happiness + 8);
 }
 
-function feed(){
-  hunger = Math.min(100, hunger+20);
+// =======================
+// 😴 SLEEP SYSTEM
+// =======================
+let sleepInterval;
+
+function sleep() {
+  if (!gameState.alive || gameState.paused) return;
+
+  sleepInterval = setInterval(() => {
+    gameState.energy = Math.min(100, gameState.energy + 2);
+    gameState.happiness = Math.min(100, gameState.happiness + 1);
+  }, 1000);
 }
 
-function sleepPet(){
-  happiness = Math.min(100, happiness+20);
+function wakeUp() {
+  clearInterval(sleepInterval);
 }
 
-function toggleOutfit(){
-  outfit=!outfit;
+// =======================
+// 🩺 DOCTOR SYSTEM
+// =======================
+function doctor() {
+  if (!gameState.alive || gameState.paused) return;
+  if (gameState.doctorCooldown > 0) return;
+
+  gameState.health = Math.min(100, gameState.health + 40);
+  gameState.happiness = Math.max(0, gameState.happiness - 10);
+
+  gameState.doctorCooldown = 30;
 }
 
-function toggleChaos(){
-  chaosMode=!chaosMode;
-}
+// =======================
+// 🏀 MINI HOOP GAME
+// =======================
+let hoopGame = {
+  active: false,
+  ballX: 0,
+  basketX: 50
+};
 
-setInterval(()=>{
-  hunger -= chaosMode ? 2 : 1;
-  happiness -= chaosMode ? 2 : 1;
+function startHoopGame() {
+  hoopGame.active = true;
 
-  if(hunger<=0){
-    age++;
-    size+=8;
-    hunger=100;
-    evolve();
-  }
-
-  updateBars();
-  drawPet();
-  saveGame();
-},1000);
-
-/* PIXEL MINI GAME */
-
-let pixelCanvas = document.getElementById("pixelGame");
-let pctx = pixelCanvas.getContext("2d");
-
-let playerX = 240;
-let enemies = [];
-let score = 0;
-
-function startPixelGame(){
-  pixelCanvas.style.display="block";
-  enemies=[];
-  score=0;
-  gameLoop();
-}
-
-function gameLoop(){
-  pctx.clearRect(0,0,500,300);
-
-  pctx.fillStyle="blue";
-  pctx.fillRect(playerX,260,20,20);
-
-  pctx.fillStyle="red";
-  enemies.forEach(e=>{
-    pctx.fillRect(e.x,e.y,20,20);
-    e.y+=2;
-    if(e.y>300){
-      score++;
-      if(score>highScore){
-        highScore=score;
-        localStorage.setItem("highScore",highScore);
-        document.getElementById("highScore").innerText=highScore;
-      }
+  let interval = setInterval(() => {
+    if (!hoopGame.active || gameState.paused) {
+      clearInterval(interval);
+      return;
     }
-  });
 
-  if(Math.random()<0.03){
-    enemies.push({x:Math.random()*480,y:0});
-  }
+    hoopGame.ballX = Math.random() * 100;
 
-  requestAnimationFrame(gameLoop);
+    if (Math.abs(hoopGame.ballX - hoopGame.basketX) < 10) {
+      gameState.happiness = Math.min(100, gameState.happiness + 15);
+    } else {
+      gameState.happiness = Math.min(100, gameState.happiness + 2);
+    }
+
+    gameState.energy = Math.max(0, gameState.energy - 2);
+  }, 800);
 }
 
-pixelCanvas.addEventListener("mousemove", e=>{
-  playerX = e.offsetX;
-});
-</script>
+function endHoopGame() {
+  hoopGame.active = false;
+}
 
-</body>
-</html>
+// =======================
+// 🧬 AGE SYSTEM (1 YEAR = 10 MINUTES)
+// =======================
+setInterval(() => {
+  if (gameState.paused || !gameState.alive) return;
+
+  gameState.ageProgress += 1;
+
+  if (gameState.ageProgress >= 600) {
+    gameState.age += 1;
+    gameState.ageProgress = 0;
+
+    gameState.size = 1 + gameState.age * 0.15;
+  }
+}, 1000);
+
+// =======================
+// ⏳ MAIN GAME LOOP
+// =======================
+setInterval(() => {
+  if (gameState.paused || !gameState.alive) return;
+
+  // slow hunger + energy decay
+  gameState.hunger = Math.min(100, gameState.hunger + 1);
+  gameState.energy = Math.max(0, gameState.energy - 1);
+
+  // poop after 1 minute
+  if (
+    gameState.lastMealTime &&
+    Date.now() - gameState.lastMealTime > 60000
+  ) {
+    gameState.poopReady = true;
+  }
+
+  // health system (neglect consequences)
+  if (gameState.hunger > 80) gameState.health -= 1;
+  if (gameState.energy < 10) gameState.health -= 1;
+
+  if (gameState.health <= 0) gameState.alive = false;
+
+  // doctor cooldown
+  if (gameState.doctorCooldown > 0) {
+    gameState.doctorCooldown -= 1;
+  }
+
+  updateUI();
+}, 5000);
+
+// =======================
+// 💔 MOOD IMPACT (no passive happiness decay)
+// =======================
+setInterval(() => {
+  if (gameState.paused || !gameState.alive) return;
+
+  if (gameState.health < 30) {
+    gameState.happiness = Math.max(0, gameState.happiness - 2);
+  }
+}, 5000);
+
+// =======================
+// 🖥️ UI UPDATE
+// =======================
+function updateUI() {
+  document.getElementById("hunger").innerText = gameState.hunger;
+  document.getElementById("energy").innerText = gameState.energy;
+  document.getElementById("health").innerText = gameState.health;
+  document.getElementById("happiness").innerText = gameState.happiness;
+  document.getElementById("age").innerText = gameState.age;
+
+  // size scaling
+  let pet = document.getElementById("pet");
+  if (pet) {
+    pet.style.transform = `scale(${gameState.size})`;
+  }
+
+  // poop icon
+  let poop = document.getElementById("poop");
+  if (poop) {
+    poop.style.display = gameState.poopReady ? "block" : "none";
+  }
+}
