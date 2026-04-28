@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Chaos Pet Arcade</title>
+<style>
+body {
+  background: #9acd32;
+  font-family: monospace;
+  text-align: center;
+  color: black;
+}
+
+#game {
+  width: 750px;
+  margin: auto;
+  background: #c7f464;
+  padding: 20px;
+  border: 6px solid #3b6b1a;
+  border-radius: 20px;
+}
+
+canvas {
+  background: #b2e251;
+  border: 4px solid #3b6b1a;
+  border-radius: 10px;
+  image-rendering: pixelated;
+}
+
+button {
+  background: #6fbf2f;
+  border: 2px solid #2e4d12;
+  padding: 8px 15px;
+  margin: 5px;
+  font-family: monospace;
+  cursor: pointer;
+}
+
+.bar {
+  height: 14px;
+  background: #3b6b1a;
+  margin: 4px;
+}
+</style>
+</head>
+<body>
+
+<div id="game">
+<h1>CHAOS PET ARCADE</h1>
+
+<canvas id="petCanvas" width="500" height="300"></canvas>
+
+<div>Age: <span id="age"></span> | Form: <span id="form"></span></div>
+
+<div>Hunger<div class="bar" id="hungerBar"></div></div>
+<div>Happiness<div class="bar" id="happyBar"></div></div>
+
+<button onclick="feed()">Feed</button>
+<button onclick="sleepPet()">Sleep</button>
+<button onclick="toggleOutfit()">Toggle Outfit</button>
+<button onclick="toggleChaos()">Chaos Mode</button>
+<button onclick="startPixelGame()">Pixel Game</button>
+
+<h3>High Score: <span id="highScore">0</span></h3>
+
+<canvas id="pixelGame" width="500" height="300" style="display:none;"></canvas>
+
+</div>
+
+<script>
+let age = 0;
+let hunger = 100;
+let happiness = 100;
+let size = 40;
+let form = "Baby";
+let chaosMode = false;
+let outfit = false;
+let highScore = localStorage.getItem("highScore") || 0;
+
+document.getElementById("highScore").innerText = highScore;
+
+const canvas = document.getElementById("petCanvas");
+const ctx = canvas.getContext("2d");
+
+function saveGame(){
+  localStorage.setItem("petData", JSON.stringify({
+    age,hunger,happiness,size,form
+  }));
+}
+
+function loadGame(){
+  let data = JSON.parse(localStorage.getItem("petData"));
+  if(data){
+    age=data.age;
+    hunger=data.hunger;
+    happiness=data.happiness;
+    size=data.size;
+    form=data.form;
+  }
+}
+
+loadGame();
+
+function evolve(){
+  if(age < 3) form="Baby";
+  else if(age < 6) form="Teen";
+  else if(age < 10) form="Gremlin";
+  else form="ULTIMATE CHAOS";
+}
+
+function drawPet(){
+  ctx.clearRect(0,0,500,300);
+
+  if(new Date().getHours() > 18){
+    ctx.fillStyle="#6a8f2a";
+    ctx.fillRect(0,0,500,300);
+  }
+
+  ctx.fillStyle="#66cc33";
+  ctx.fillRect(250-size/2,150-size/2,size,size);
+
+  ctx.fillStyle="white";
+  ctx.fillRect(230,120,15,15);
+  ctx.fillRect(260,120,15,15);
+
+  ctx.fillStyle="black";
+  ctx.fillRect(235,125,5,5);
+  ctx.fillRect(265,125,5,5);
+
+  if(outfit){
+    ctx.fillStyle="black";
+    ctx.fillRect(240,170,20,10);
+  }
+}
+
+function updateBars(){
+  document.getElementById("age").innerText = age;
+  document.getElementById("form").innerText = form;
+  document.getElementById("hungerBar").style.width = hunger + "%";
+  document.getElementById("happyBar").style.width = happiness + "%";
+}
+
+function feed(){
+  hunger = Math.min(100, hunger+20);
+}
+
+function sleepPet(){
+  happiness = Math.min(100, happiness+20);
+}
+
+function toggleOutfit(){
+  outfit=!outfit;
+}
+
+function toggleChaos(){
+  chaosMode=!chaosMode;
+}
+
+setInterval(()=>{
+  hunger -= chaosMode ? 2 : 1;
+  happiness -= chaosMode ? 2 : 1;
+
+  if(hunger<=0){
+    age++;
+    size+=8;
+    hunger=100;
+    evolve();
+  }
+
+  updateBars();
+  drawPet();
+  saveGame();
+},1000);
+
+/* PIXEL MINI GAME */
+
+let pixelCanvas = document.getElementById("pixelGame");
+let pctx = pixelCanvas.getContext("2d");
+
+let playerX = 240;
+let enemies = [];
+let score = 0;
+
+function startPixelGame(){
+  pixelCanvas.style.display="block";
+  enemies=[];
+  score=0;
+  gameLoop();
+}
+
+function gameLoop(){
+  pctx.clearRect(0,0,500,300);
+
+  pctx.fillStyle="blue";
+  pctx.fillRect(playerX,260,20,20);
+
+  pctx.fillStyle="red";
+  enemies.forEach(e=>{
+    pctx.fillRect(e.x,e.y,20,20);
+    e.y+=2;
+    if(e.y>300){
+      score++;
+      if(score>highScore){
+        highScore=score;
+        localStorage.setItem("highScore",highScore);
+        document.getElementById("highScore").innerText=highScore;
+      }
+    }
+  });
+
+  if(Math.random()<0.03){
+    enemies.push({x:Math.random()*480,y:0});
+  }
+
+  requestAnimationFrame(gameLoop);
+}
+
+pixelCanvas.addEventListener("mousemove", e=>{
+  playerX = e.offsetX;
+});
+</script>
+
+</body>
+</html>
