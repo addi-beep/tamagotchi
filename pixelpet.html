@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Pixel Pet</title>
+  <style>
+    body {
+      text-align: center;
+      font-family: Arial;
+      background: linear-gradient(#dfe9ff, #f7faff);
+    }
+
+    #pet {
+      font-size: 70px;
+      transition: transform 0.4s ease;
+      margin: 20px;
+    }
+
+    button {
+      margin: 5px;
+      padding: 8px 14px;
+      cursor: pointer;
+      border-radius: 8px;
+      border: none;
+      background: #6c8cff;
+      color: white;
+    }
+
+    button:hover {
+      background: #4f6fff;
+    }
+
+    #poop {
+      display: none;
+      font-size: 28px;
+    }
+
+    .stat {
+      margin: 3px;
+    }
+  </style>
+</head>
+<body>
+
+<h1>🐣 Pixel Pet</h1>
+
+<div id="pet">🐣</div>
+<div id="poop">💩</div>
+
+<div class="stat">Hunger: <span id="hunger"></span></div>
+<div class="stat">Energy: <span id="energy"></span></div>
+<div class="stat">Health: <span id="health"></span></div>
+<div class="stat">Happiness: <span id="happiness"></span></div>
+<div class="stat">Age: <span id="age"></span></div>
+
+<br>
+
+<button onclick="feed()">Feed</button>
+<button onclick="sleepPet()">Sleep</button>
+<button onclick="wakePet()">Wake</button>
+<button onclick="cleanPoop()">Toilet</button>
+<button onclick="doctor()">Doctor</button>
+<button onclick="playMiniGame()">Mini Game</button>
+<button onclick="togglePause()">Pause</button>
+
+<script>
+let game = {
+  hunger: 50,
+  energy: 50,
+  health: 100,
+  happiness: 50,
+  age: 0,
+  ageTimer: 0,
+  size: 1,
+  poopReady: false,
+  lastMeal: 0,
+  doctorCooldown: 0,
+  paused: false,
+  alive: true
+};
+
+// LOAD SAVE
+if(localStorage.getItem("petSave")){
+  game = JSON.parse(localStorage.getItem("petSave"));
+}
+
+// SAVE
+setInterval(() => {
+  localStorage.setItem("petSave", JSON.stringify(game));
+}, 5000);
+
+// FEED
+function feed(){
+  if(!game.alive || game.paused) return;
+  game.hunger = Math.max(0, game.hunger - 20);
+  game.happiness = Math.min(100, game.happiness + 5);
+  game.lastMeal = Date.now();
+}
+
+// SLEEP
+let sleepInterval;
+function sleepPet(){
+  if(!game.alive || game.paused) return;
+  sleepInterval = setInterval(() => {
+    game.energy = Math.min(100, game.energy + 3);
+    game.happiness = Math.min(100, game.happiness + 1);
+  },1000);
+}
+
+function wakePet(){
+  clearInterval(sleepInterval);
+}
+
+// POOP
+function cleanPoop(){
+  if(game.poopReady){
+    game.poopReady = false;
+    game.happiness += 5;
+  }
+}
+
+// DOCTOR
+function doctor(){
+  if(game.doctorCooldown > 0 || !game.alive || game.paused) return;
+  game.health = Math.min(100, game.health + 40);
+  game.happiness = Math.max(0, game.happiness - 10);
+  game.doctorCooldown = 30;
+}
+
+// MINI GAME
+function playMiniGame(){
+  if(!game.alive || game.paused) return;
+  let win = Math.random() > 0.4;
+  if(win){
+    alert("🏀 You scored!");
+    game.happiness += 15;
+  } else {
+    alert("Missed! Try again!");
+    game.happiness += 5;
+  }
+  game.energy -= 10;
+}
+
+// PAUSE
+function togglePause(){
+  game.paused = !game.paused;
+}
+
+// AGE SYSTEM (1 year = 10 min)
+setInterval(() => {
+  if(game.paused || !game.alive) return;
+  game.ageTimer++;
+  if(game.ageTimer >= 600){
+    game.age++;
+    game.ageTimer = 0;
+    game.size = 1 + game.age * 0.15;
+  }
+},1000);
+
+// MAIN LOOP
+setInterval(() => {
+  if(game.paused || !game.alive) return;
+
+  game.hunger = Math.min(100, game.hunger + 1);
+  game.energy = Math.max(0, game.energy - 1);
+
+  if(game.lastMeal && Date.now() - game.lastMeal > 60000){
+    game.poopReady = true;
+  }
+
+  if(game.hunger > 80) game.health--;
+  if(game.energy < 10) game.health--;
+
+  if(game.health <= 0){
+    game.alive = false;
+    alert("💀 Your pet has passed away.");
+  }
+
+  if(game.doctorCooldown > 0) game.doctorCooldown--;
+
+  updateUI();
+},5000);
+
+// UPDATE UI
+function updateUI(){
+  document.getElementById("hunger").innerText = game.hunger;
+  document.getElementById("energy").innerText = game.energy;
+  document.getElementById("health").innerText = game.health;
+  document.getElementById("happiness").innerText = game.happiness;
+  document.getElementById("age").innerText = game.age;
+
+  document.getElementById("pet").style.transform = 
+    "scale(" + game.size + ")";
+
+  document.getElementById("poop").style.display = 
+    game.poopReady ? "block" : "none";
+}
+
+updateUI();
+</script>
+
+</body>
+</html>
