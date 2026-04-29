@@ -1,202 +1,289 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Pixel Pet</title>
-  <style>
-    body {
-      text-align: center;
-      font-family: Arial;
-      background: linear-gradient(#dfe9ff, #f7faff);
-    }
+<meta charset="UTF-8">
+<title>Cute Tamagotchi</title>
 
-    #pet {
-      font-size: 70px;
-      transition: transform 0.4s ease;
-      margin: 20px;
-    }
+<style>
+body {
+  margin: 0;
+  background: linear-gradient(180deg,#1e1e3f,#101025);
+  font-family: 'Courier New', monospace;
+  color: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
 
-    button {
-      margin: 5px;
-      padding: 8px 14px;
-      cursor: pointer;
-      border-radius: 8px;
-      border: none;
-      background: #6c8cff;
-      color: white;
-    }
+.game {
+  width: 380px;
+  background: #1b1b33;
+  border-radius: 30px;
+  padding: 20px;
+  box-shadow: 0 0 30px rgba(120,120,255,0.4);
+  text-align: center;
+}
 
-    button:hover {
-      background: #4f6fff;
-    }
+.pet-container {
+  height: 180px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: transform 0.5s;
+}
 
-    #poop {
-      display: none;
-      font-size: 28px;
-    }
+.pet {
+  width: 120px;
+  height: 120px;
+  background: #ffb6d9;
+  border-radius: 50% 50% 45% 45%;
+  position: relative;
+  transition: transform 0.5s;
+}
 
-    .stat {
-      margin: 3px;
-    }
-  </style>
+/* ears */
+.pet::before, .pet::after {
+  content: "";
+  width: 40px;
+  height: 50px;
+  background: #ffb6d9;
+  position: absolute;
+  top: -30px;
+  border-radius: 50%;
+}
+
+.pet::before { left: 10px; }
+.pet::after { right: 10px; }
+
+/* eyes */
+.eye {
+  width: 18px;
+  height: 18px;
+  background: black;
+  border-radius: 50%;
+  position: absolute;
+  top: 45px;
+}
+
+.eye.left { left: 35px; }
+.eye.right { right: 35px; }
+
+/* mouth */
+.mouth {
+  width: 25px;
+  height: 15px;
+  border-bottom: 3px solid black;
+  border-radius: 50%;
+  position: absolute;
+  top: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.stats {
+  margin-top: 10px;
+  font-size: 14px;
+}
+
+button {
+  margin: 4px;
+  padding: 6px 10px;
+  border-radius: 12px;
+  border: none;
+  background: #6c63ff;
+  color: white;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #837dff;
+}
+
+.poop {
+  display: none;
+  font-size: 22px;
+}
+
+#miniGame {
+  display: none;
+  margin-top: 15px;
+}
+
+canvas {
+  background: #0f0f1f;
+  border-radius: 15px;
+}
+</style>
 </head>
 <body>
 
-<h1>🐣 Pixel Pet</h1>
+<div class="game">
 
-<div id="pet">🐣</div>
-<div id="poop">💩</div>
+  <div class="pet-container" id="petContainer">
+    <div class="pet" id="pet">
+      <div class="eye left"></div>
+      <div class="eye right"></div>
+      <div class="mouth"></div>
+    </div>
+  </div>
 
-<div class="stat">Hunger: <span id="hunger"></span></div>
-<div class="stat">Energy: <span id="energy"></span></div>
-<div class="stat">Health: <span id="health"></span></div>
-<div class="stat">Happiness: <span id="happiness"></span></div>
-<div class="stat">Age: <span id="age"></span></div>
+  <div class="poop" id="poop">💩</div>
 
-<br>
+  <div class="stats">
+    Hunger: <span id="hunger"></span><br>
+    Energy: <span id="energy"></span><br>
+    Health: <span id="health"></span><br>
+    Happiness: <span id="happiness"></span><br>
+    Age: <span id="age"></span>
+  </div>
 
-<button onclick="feed()">Feed</button>
-<button onclick="sleepPet()">Sleep</button>
-<button onclick="wakePet()">Wake</button>
-<button onclick="cleanPoop()">Toilet</button>
-<button onclick="doctor()">Doctor</button>
-<button onclick="playMiniGame()">Mini Game</button>
-<button onclick="togglePause()">Pause</button>
+  <div>
+    <button onclick="feed()">Feed</button>
+    <button onclick="sleepPet()">Sleep</button>
+    <button onclick="toilet()">Toilet</button>
+    <button onclick="doctor()">Doctor</button>
+    <button onclick="togglePause()">Pause</button>
+    <button onclick="startMiniGame()">Hoop Game</button>
+  </div>
+
+  <div id="miniGame">
+    <canvas id="gameCanvas" width="300" height="200"></canvas><br>
+    <button onclick="endMiniGame()">Exit Game</button>
+  </div>
+
+</div>
 
 <script>
-let game = {
-  hunger: 50,
-  energy: 50,
-  health: 100,
-  happiness: 50,
-  age: 0,
-  ageTimer: 0,
-  size: 1,
-  poopReady: false,
-  lastMeal: 0,
-  doctorCooldown: 0,
-  paused: false,
-  alive: true
+let state = {
+  paused:false,
+  alive:true,
+  hunger:50,
+  energy:50,
+  health:100,
+  happiness:50,
+  age:0,
+  ageProgress:0,
+  size:1,
+  poopReady:false,
+  lastMeal:0,
+  doctorCooldown:0
 };
 
-// LOAD SAVE
-if(localStorage.getItem("petSave")){
-  game = JSON.parse(localStorage.getItem("petSave"));
+function save(){ localStorage.setItem("petSave",JSON.stringify(state)); }
+function load(){
+  let data = localStorage.getItem("petSave");
+  if(data) state = JSON.parse(data);
+}
+load();
+
+function updateUI(){
+  hunger.innerText = state.hunger;
+  energy.innerText = state.energy;
+  health.innerText = state.health;
+  happiness.innerText = state.happiness;
+  age.innerText = state.age;
+  poop.style.display = state.poopReady ? "block":"none";
+  pet.style.transform = "scale("+state.size+")";
 }
 
-// SAVE
-setInterval(() => {
-  localStorage.setItem("petSave", JSON.stringify(game));
-}, 5000);
+setInterval(()=>{
+  if(state.paused || !state.alive) return;
 
-// FEED
-function feed(){
-  if(!game.alive || game.paused) return;
-  game.hunger = Math.max(0, game.hunger - 20);
-  game.happiness = Math.min(100, game.happiness + 5);
-  game.lastMeal = Date.now();
-}
+  state.hunger = Math.min(100,state.hunger+1);
+  state.energy = Math.max(0,state.energy-1);
 
-// SLEEP
-let sleepInterval;
-function sleepPet(){
-  if(!game.alive || game.paused) return;
-  sleepInterval = setInterval(() => {
-    game.energy = Math.min(100, game.energy + 3);
-    game.happiness = Math.min(100, game.happiness + 1);
-  },1000);
-}
+  if(state.hunger>80) state.health--;
+  if(state.energy<10) state.health--;
 
-function wakePet(){
-  clearInterval(sleepInterval);
-}
+  if(state.health<=0) state.alive=false;
 
-// POOP
-function cleanPoop(){
-  if(game.poopReady){
-    game.poopReady = false;
-    game.happiness += 5;
-  }
-}
+  if(state.lastMeal && Date.now()-state.lastMeal>60000)
+    state.poopReady=true;
 
-// DOCTOR
-function doctor(){
-  if(game.doctorCooldown > 0 || !game.alive || game.paused) return;
-  game.health = Math.min(100, game.health + 40);
-  game.happiness = Math.max(0, game.happiness - 10);
-  game.doctorCooldown = 30;
-}
+  if(state.doctorCooldown>0) state.doctorCooldown--;
 
-// MINI GAME
-function playMiniGame(){
-  if(!game.alive || game.paused) return;
-  let win = Math.random() > 0.4;
-  if(win){
-    alert("🏀 You scored!");
-    game.happiness += 15;
-  } else {
-    alert("Missed! Try again!");
-    game.happiness += 5;
-  }
-  game.energy -= 10;
-}
+  updateUI();
+  save();
+},5000);
 
-// PAUSE
-function togglePause(){
-  game.paused = !game.paused;
-}
-
-// AGE SYSTEM (1 year = 10 min)
-setInterval(() => {
-  if(game.paused || !game.alive) return;
-  game.ageTimer++;
-  if(game.ageTimer >= 600){
-    game.age++;
-    game.ageTimer = 0;
-    game.size = 1 + game.age * 0.15;
+setInterval(()=>{
+  if(state.paused||!state.alive) return;
+  state.ageProgress++;
+  if(state.ageProgress>=600){
+    state.age++;
+    state.ageProgress=0;
+    state.size=1+state.age*0.15;
   }
 },1000);
 
-// MAIN LOOP
-setInterval(() => {
-  if(game.paused || !game.alive) return;
+function feed(){
+  if(!state.alive||state.paused)return;
+  state.hunger=Math.max(0,state.hunger-20);
+  state.happiness=Math.min(100,state.happiness+5);
+  state.lastMeal=Date.now();
+}
 
-  game.hunger = Math.min(100, game.hunger + 1);
-  game.energy = Math.max(0, game.energy - 1);
+function sleepPet(){
+  if(!state.alive||state.paused)return;
+  let sleepInt=setInterval(()=>{
+    if(state.energy>=100){clearInterval(sleepInt);return;}
+    state.energy+=2;
+    state.happiness+=1;
+    updateUI();
+  },1000);
+}
 
-  if(game.lastMeal && Date.now() - game.lastMeal > 60000){
-    game.poopReady = true;
-  }
+function toilet(){
+  if(!state.poopReady)return;
+  state.poopReady=false;
+  state.happiness+=8;
+}
 
-  if(game.hunger > 80) game.health--;
-  if(game.energy < 10) game.health--;
+function doctor(){
+  if(state.doctorCooldown>0)return;
+  state.health=Math.min(100,state.health+40);
+  state.happiness-=10;
+  state.doctorCooldown=30;
+}
 
-  if(game.health <= 0){
-    game.alive = false;
-    alert("💀 Your pet has passed away.");
-  }
+function togglePause(){ state.paused=!state.paused; }
 
-  if(game.doctorCooldown > 0) game.doctorCooldown--;
+/* MINI GAME */
+let canvas=document.getElementById("gameCanvas");
+let ctx=canvas.getContext("2d");
+let ballY=0,score=0,gameInterval;
 
-  updateUI();
-},5000);
+function startMiniGame(){
+  document.getElementById("miniGame").style.display="block";
+  ballY=0; score=0;
+  gameInterval=setInterval(()=>{
+    ctx.clearRect(0,0,300,200);
+    ctx.fillStyle="orange";
+    ctx.fillRect(130,170,40,10); // hoop
+    ctx.beginPath();
+    ctx.arc(150,ballY,8,0,Math.PI*2);
+    ctx.fillStyle="white";
+    ctx.fill();
+    ballY+=5;
+    if(ballY>200){
+      if(ballY>170 && ballY<190){
+        state.happiness+=15;
+      } else {
+        state.happiness+=2;
+      }
+      state.energy-=2;
+      ballY=0;
+    }
+  },30);
+}
 
-// UPDATE UI
-function updateUI(){
-  document.getElementById("hunger").innerText = game.hunger;
-  document.getElementById("energy").innerText = game.energy;
-  document.getElementById("health").innerText = game.health;
-  document.getElementById("happiness").innerText = game.happiness;
-  document.getElementById("age").innerText = game.age;
-
-  document.getElementById("pet").style.transform = 
-    "scale(" + game.size + ")";
-
-  document.getElementById("poop").style.display = 
-    game.poopReady ? "block" : "none";
+function endMiniGame(){
+  clearInterval(gameInterval);
+  document.getElementById("miniGame").style.display="none";
 }
 
 updateUI();
 </script>
-
 </body>
 </html>
